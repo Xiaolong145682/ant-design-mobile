@@ -1,4 +1,5 @@
 import React, { FC, useState } from 'react'
+import { useDebounceFn } from 'ahooks'
 import Picker from '../picker'
 import type { PickerProps } from '../picker'
 import type { PickerValue, PickerValueExtend } from '../picker-view'
@@ -27,21 +28,25 @@ export const CascadePicker: FC<CascadePickerProps> = p => {
 
   const [value, setValue] = useState<PickerValue[]>(props.defaultValue)
 
-  const onSelect = (val: PickerValue[], ext: PickerValueExtend) => {
-    setValue(val)
-    // 如果上一次的 value 与本次 val 的最后一个值一样，说明一定是非最后一列发生了变化，跳过本次 onSelect
-    if (value[value.length - 1] === val[val.length - 1]) return
-    // 正在初始化，跳过 onSelect
-    if (val.length < depth) return
-    if (val[0] === undefined) return
-    pickerProps.onSelect?.(val, ext)
-  }
+  const { run: debouncedOnChange } = useDebounceFn(
+    (val: PickerValue[], ext: PickerValueExtend) => {
+      pickerProps.onSelect?.(val, ext)
+    },
+    {
+      wait: 0,
+      leading: false,
+      trailing: true,
+    }
+  )
 
   return (
     <Picker
       {...pickerProps}
       value={value}
-      onSelect={onSelect}
+      onSelect={(val, ext) => {
+        setValue(val)
+        debouncedOnChange(val, ext)
+      }}
       columns={selected =>
         generateCascadePickerColumns(
           selected as string[],
